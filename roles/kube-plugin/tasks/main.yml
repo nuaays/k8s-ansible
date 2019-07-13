@@ -1,0 +1,64 @@
+- name: prepare some dirs
+  file: name={{ item }} state=directory
+  with_items:
+  - /tmp/plugin
+  - /tmp/dashboard
+  - /tmp/heapster
+
+
+- name: copy kubectl
+  copy: src="{{ base_dir }}/bin/{{ item }}" dest="{{ bin_dir }}/{{ item }}" mode=0755
+  with_items:
+  - kubectl
+
+- name: copy dns yamls
+  template: src="{{ base_dir }}/manifests/{{ item }}" dest=/tmp/plugin/{{ item }}
+  with_items:
+    - coredns.yaml
+    - external_dns.yaml
+    - curl.yaml
+    - nginxcluster.yaml
+
+- name: deploy dns
+  shell: "{{ bin_dir }}/kubectl apply -f /tmp/plugin/coredns.yaml"
+
+- name: deploy external dns
+  shell: "{{ bin_dir }}/kubectl apply -f /tmp/plugin/external_dns.yaml"
+
+- name: deploy curl
+  shell: "{{ bin_dir }}/kubectl apply -f /tmp/plugin/curl.yaml"
+
+- name: deploy nginx cluster
+  shell: "{{ bin_dir }}/kubectl apply -f /tmp/plugin/nginxcluster.yaml"
+
+- name: copy heapster yamls
+  template: src="{{ base_dir }}/manifests/heapster/{{ item }}" dest=/tmp/heapster/{{ item }}
+  with_items:
+    - grafana.yaml
+    - heapster.yaml
+    - influxdb.yaml
+
+- name: deploy heapster
+  shell: "cd /tmp/heapster;{{ bin_dir }}/kubectl apply -f ."
+
+- name: copy dashboard yamls
+  template: src="{{ base_dir }}/manifests/dashboard/{{ item }}" dest=/tmp/dashboard/{{ item }}
+  with_items:
+    - kubernetes-dashboard.yaml
+    - admin-user-sa-rbac.yaml
+    - ui-admin-rbac.yaml
+    - ui-read-rbac.yaml
+
+- name: deploy dashboard
+  shell: "sleep 10;cd /tmp/dashboard/;{{ bin_dir }}/kubectl apply -f ."
+
+#- name: recreate dashboard
+#  shell: "kubectl -n kube-system get pod |grep dashboard | cut -d ' ' -f 1|xargs kubectl -n kube-system delete pod"
+
+- name: get dashboard token
+  shell: "sleep 5;{{ bin_dir }}/kubectl -n kube-system describe secret $({{ bin_dir }}/kubectl get secret -n kube-system | grep dashboard-token | awk '{print $1}')"
+
+- name: check kube dns
+  shell: "{{ bin_dir }}/kubectl exec -it curl nslookup kubernetes;{{ bin_dir }}/kubectl exec -it curl nslookup nginxcluster"
+
+

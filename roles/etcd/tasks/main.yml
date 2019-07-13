@@ -1,0 +1,59 @@
+- name: 下载etcd二进制文件
+  copy: src={{ base_dir }}/bin/{{ item }} dest={{ bin_dir }}/{{ item }} mode=0755
+  with_items:
+  - etcd
+  - etcdctl
+  tags: upgrade_k8s
+
+- name: 创建etcd证书目录
+  file: name=/etc/etcd/ssl state=directory
+
+# 注册变量p，根据p的stat信息判断是否已经生成过etcd证书，如果没有，下一步生成证书
+# 如果已经有etcd证书，为了保证整个安装的幂等性，跳过证书生成的步骤
+- name: 读取etcd证书stat信息
+  stat: path="/etc/etcd/ssl/etcd.pem"
+  register: p
+
+- name: 创建etcd证书请求
+  template: src=etcd-csr.json.j2 dest=/etc/etcd/ssl/etcd-csr.json
+  when: p.stat.isreg is not defined 
+
+- name: 创建 etcd证书和私钥
+  when: p.stat.isreg is not defined 
+  shell: "cd /etc/etcd/ssl && {{ bin_dir }}/cfssl gencert \
+        -ca={{ ca_dir }}/ca.pem \
+        -ca-key={{ ca_dir }}/ca-key.pem \
+        -config={{ ca_dir }}/ca-config.json \
+        -profile=kubernetes etcd-csr.json | {{ bin_dir }}/cfssljson -bare etcd"
+
+- name: 创建etcd工作目录
+  file: name=/var/lib/etcd state=directory
+
+- name: 创建etcd的systemd unit文件
+  template: src=etcd.service.j2 dest=/etc/systemd/system/etcd.service
+
+- name: 开机启用etcd服务
+  shell: systemctl enable etcd
+  ignore_errors: true
+
+- name: 开启etcd服务
+  shell: systemctl daemon-reload && systemctl restart etcd
+  tags: upgrade_k8s
+
+- name: check etcd cluster health
+  shell: sudo {{ bin_dir }}/etcdctl --ca-file={{ ca_dir }}/ca.pem --cert-file=/etc/etcd/ssl/etcd.pem --key-file=/etc/etcd/ssl/etcd-key.pem --endpoints={{ ETCD_ENDPOINTS }} cluster-health
+  #shell: etcdctl --ca-file=/etc/kubernetes/ssl/ca.pem --cert-file=/etc/etcd/ssl/etcd.pem --key-file=/etc/etcd/ssl/etcd-key.pem --endpoints=https://192.168.56.101:2379,https://192.168.56.102:2379,https://192.168.56.103:2379 cluster-health
+
+- name: check etcd member list
+  shell: sudo {{ bin_dir }}/etcdctl --ca-file={{ ca_dir }}/ca.pem --cert-file=/etc/etcd/ssl/etcd.pem --key-file=/etc/etcd/ssl/etcd-key.pem --endpoints={{ ETCD_ENDPOINTS }} member list
+  #etcdctl --ca-file=/etc/kubernetes/ssl/ca.pem --cert-file=/etc/etcd/ssl/etcd.pem --key-file=/etc/etcd/ssl/etcd-key.pem --endpoints=https://10.12.0.101:2379,https://10.12.0.12:2379,https://10.12.0.252:2379 cluster-health
+
+- name: check endpoint status
+  shell: ETCDCTL_API=3  {{ bin_dir }}/etcdctl --cacert={{ ca_dir }}/ca.pem --cert=/etc/etcd/ssl/etcd.pem --key=/etc/etcd/ssl/etcd-key.pem --endpoints={{ ETCD_ENDPOINTS }} endpoint status  --write-out="table"
+
+- name: check endpoint health
+  shell: ETCDCTL_API=3  {{ bin_dir }}/etcdctl --cacert={{ ca_dir }}/ca.pem --cert=/etc/etcd/ssl/etcd.pem --key=/etc/etcd/ssl/etcd-key.pem --endpoints={{ ETCD_ENDPOINTS }} endpoint health
+
+#- name: get etcd all kets
+#  shell: ETCDCTL_API=3  {{ bin_dir }}/etcdctl --cacert={{ ca_dir }}/ca.pem --cert=/etc/etcd/ssl/etcd.pem --key=/etc/etcd/ssl/etcd-key.pem --endpoints={{ ETCD_ENDPOINTS }} get / --prefix --keys-only
+

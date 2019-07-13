@@ -1,0 +1,41 @@
+{
+  "registry-mirrors": ["https://registry.docker-cn.com", "https://docker.mirrors.ustc.edu.cn"],
+  "hosts": [
+        "tcp://127.0.0.1:2375",
+        "unix:///var/run/docker.sock"
+   ],
+   "oom-score-adjust": -1000,
+   "debug": false,
+   "experimental": true,
+   "metrics-addr": "0.0.0.0:1337",
+   "selinux-enabled": false,
+   "insecure-registries":[
+        "gcr.io",
+        "quay.io",
+        "registry.cn-hangzhou.aliyuncs.com",
+        "10.194.11.253:5000",
+        "10.203.1.2:5000",
+        "10.203.1.4:5000",
+        "10.191.3.2:5000",
+        "10.191.5.2:5000",
+        "registry.crfchina.com:5000",
+        "registry.dev.crfchina.com:5000",
+        "registry.prod.crfchina.com:5000",
+        "registry.adt.crfchina.com:5000",
+        "registry.cmall.crfchina.com:5000"
+  ],
+    "exec-opts": [
+        "native.cgroupdriver=cgroupfs"
+    ],
+    "graph": "/data/docker/graph",
+    "storage-driver": "overlay2",
+    "storage-opts": [ "overlay2.override_kernel_check=true" ],
+    "live-restore": false,
+    "max-concurrent-downloads": 10,
+    "log-driver": "json-file",
+    "log-level": "warn",
+    "log-opts": {
+      "max-size": "100m",
+      "max-file": "6"
+    }
+}

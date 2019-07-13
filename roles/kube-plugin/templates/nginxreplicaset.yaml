@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  annotations:
+    description: test nginx
+  labels:
+    app: yangsen
+    appname: nginx
+  namespace: yangsen
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: yangsen
+      appname: nginx
+  template:
+    metadata:
+      annotations:
+        description: test nginx
+      labels:
+        app: yangsen
+        appname: nginx
+      name: yangsen
+    spec:
+      containers:
+        image: nginx:1.13.10-alpine
+        imagePullPolicy: IfNotPresent
+        - env:
+          - name: NGINX_VERSION
+            value: 1.13.10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        securityContext:
+          privileged: false
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
